@@ -24,8 +24,7 @@ RUN rustup target add x86_64-unknown-linux-musl
 ENV PKG_CONFIG_ALLOW_CROSS=1
 ENV PKG_CONFIG_SYSROOT_DIR=/usr/lib/x86_64-linux-musl
 ENV OPENSSL_STATIC=1
-ENV OPENSSL_DIR=/usr/local/musl # This is a common convention for musl-compiled OpenSSL
-
+ENV OPENSSL_DIR=/usr/local/musl
 # Set the working directory inside the container
 WORKDIR /usr/src/app
 
