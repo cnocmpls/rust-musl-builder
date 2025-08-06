@@ -1,50 +1,30 @@
-# Use a slim Rust image as a base
+# Use a slim Rust image as a base for a smaller footprint
 FROM rust:1.88.0-slim-bullseye
 
-# Install musl-tools and other necessary build dependencies
+# Install musl-tools, a C/C++ compiler, and a few other necessary packages.
+# `musl-tools` provides the `musl-gcc` compiler and libc.
+# `build-essential` contains the tools needed to build C libraries from source.
+# `ca-certificates` is crucial for HTTPS requests.
+# `git` is often a dependency of crates that pull from Git repos.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     musl-tools \
-    pkg-config \
     build-essential \
+    pkg-config \
     ca-certificates \
-    perl \
-    wget \
-    tar \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Add the x86_64-unknown-linux-musl target to Rustup
+# Add the x86_64-unknown-linux-musl target to Rustup.
+# This ensures the Rust toolchain can compile for musl.
 RUN rustup target add x86_64-unknown-linux-musl
 
-# --- Compile OpenSSL from Source for MUSL ---
-# This step is the key to solving your issue.
-# We'll download OpenSSL, configure it for musl, and build it statically.
-# Note: Using no-asm can often fix issues with platform-specific headers and assembly.
-# We also simplify the Configure script to rely on the musl-gcc compiler to do the work.
-RUN set -ex; \
-    export OPENSSL_VERSION="3.0.12"; \
-    export OPENSSL_DIR="/usr/local/musl"; \
-    export CC="musl-gcc"; \
-    mkdir -p /usr/local/musl; \
-    wget -qO- "https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz" | tar -xzf -; \
-    cd "openssl-$OPENSSL_VERSION"; \
-    ./Configure no-shared no-zlib no-asm \
-    --prefix=$OPENSSL_DIR \
-    --openssldir=$OPENSSL_DIR; \
-    make -j$(nproc); \
-    make install; \
-    cd ..; \
-    rm -rf "openssl-$OPENSSL_VERSION"; \
-    
-# Set environment variables for the OpenSSL build
-ENV OPENSSL_STATIC=1
+# Set environment variables to enable static linking for musl target.
+# These hints guide the openssl-sys build script to compile OpenSSL itself.
 ENV OPENSSL_DIR=/usr/local/musl
 ENV PKG_CONFIG_ALLOW_CROSS=1
-ENV PKG_CONFIG_PATH=/usr/local/musl/lib/pkgconfig
-ENV CC="musl-gcc"
-ENV CFLAGS="-fPIC -DOPENSSL_NO_ASM"
-ENV LDFLAGS="-static"
+ENV OPENSSL_STATIC=1
+ENV CC=musl-gcc
 
 # Set the working directory inside the container
 WORKDIR /usr/src/app
